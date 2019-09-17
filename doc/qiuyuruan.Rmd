@@ -1,0 +1,249 @@
+---
+title: "Sentiment Analysis of Lyrics in Different Music Genres"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+packages.used=c("tm", "wordcloud", "RColorBrewer", 
+                "dplyr", "tydytext","textdata","reshape2","ggplot2")
+# check packages that need to be installed.
+packages.needed=setdiff(packages.used, 
+                        intersect(installed.packages()[,1], 
+                                  packages.used))
+# install additional packages
+if(length(packages.needed)>0){
+  install.packages(packages.needed, dependencies = TRUE,
+                   repos='http://cran.us.r-project.org')}
+library(ggplot2)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+library(dplyr)
+library(tidytext)
+library(textdata)
+library(reshape2)
+```
+
+```{r load data,echo=FALSE, warning=FALSE, message=FALSE}
+# load lyrics data
+load('../output/processed_lyrics.RData') 
+```
+
+Music is everywhere in daily life, in shopping malls, resturants, at home, nightclub, etc. Apparently, the music type played in Michelin starred restuarants and nightclubs are totally different. For instance, nightclubs tend to play rock or hip-hop music, while restuarants tend to play classic or jazz music. What's more, people with different personalities have different appetites for music genres. For example, optimisms often prefer pop music while pessimists prefer metal or hip-hop music better.
+
+So whether different music genres have their own attitudes for sentiment? In order to explore this problem, I decide to conduct sentiment analysis on song lyrics.
+
+##Initial Data Exploration
+
+First, let's conduct the basic data exploration. The dataset I used is the 'dt_lyrics' dataset, which contains 7 columns. They are song, year, artist, genre, lyrics, id and stemmedwords.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+head(dt_lyrics)
+```
+
+####Music Genres
+
+Since my concentration is on music genres, I plotted the barplot of music genres. As we can see in the plot, rock music has the most number of songs in our dataset, followed by pop,metal,hip-hop, country, jazz and others. So at least in this dataset, rock music is the most poplular one.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data=dt_lyrics)+
+  geom_bar(aes(x=genre),color="white",fill="lightblue")+
+  ylab("Total Numbers of Songs")+
+  ggtitle("Genres")
+```
+
+####What's the most common word?
+
+In order to conduct sentiment analysis, I have to dig deeper into the lyrcis of the songs. I calculate the number of presence of each word. The result turns out to be that 'love' is the most popular word. If we look further into the top 5 popular words, 2 among 5 are obvious positive words, which are 'love' and 'baby', while 'ill' is a negative word. And the last two words, 'time' and 'youre', are neutral sentiment words according to my common sense.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+corpus <- VCorpus(VectorSource(dt_lyrics$stemmedwords))
+word_tibble <- tidy(corpus) %>%
+  select(text) %>%
+  mutate(id = row_number()) %>%
+  unnest_tokens(word, text)
+```
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+#count the numbers of presence of each word
+word_tibble %>%
+  count(word,sort = TRUE) 
+```
+
+
+I also plot a word cloud for elegant visualization.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+word_tibble %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100,
+      scale=c(5,0.5),
+      min.freq=1,
+      random.order=FALSE,
+      rot.per=0.3,
+      use.r.layout=T,
+      random.color=FALSE,
+      colors=brewer.pal(10,"Blues")))
+```
+
+##Most common words in each music genre
+
+After knowing the most common words for the entire songs with different music genres. I want to know that for each individual music genre, what are the most common words. So I select the top 6 music genres with the most number of songs,which are rock, pop, metal, hip-hop, country and jazz respectively. And I calculate the frequency of top 10 common words in each music genre and plot the word cloud for each genre.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+lyrics<-dt_lyrics %>%
+  group_by(genre) %>%
+  unnest_tokens(word,stemmedwords)
+```
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+genres <- c("Rock", "Pop","Hip-Hop","Metal", "Country","Jazz")
+lyrics[which(lyrics$genre=="Rock"),] %>%
+  count(word,sort=TRUE) %>%
+  top_n(10)
+lyrics[which(lyrics$genre=="Pop"),] %>%
+  count(word,sort=TRUE) %>%
+  top_n(10)
+lyrics[which(lyrics$genre=="Hip-Hop"),]  %>%
+  count(word,sort=TRUE) %>%
+  top_n(10)
+lyrics[which(lyrics$genre=="Metal"),]  %>%
+  count(word,sort=TRUE) %>%
+  top_n(10)
+lyrics[which(lyrics$genre=="Country"),]  %>%
+  count(word,sort=TRUE) %>%
+  top_n(10)
+lyrics[which(lyrics$genre=="Jazz"),]  %>%
+  count(word,sort=TRUE) %>%
+  top_n(10)
+
+for (i in 1:6){
+lyrics[which(lyrics$genre==genres[i]),]  %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100,scale=c(3,0.5),
+      random.order=FALSE,
+      rot.per=0.5,
+      use.r.layout=T,
+      random.color=TRUE))%>%
+  title(main=genres[i])
+}
+
+```
+
+Some of the above results confirm our common sense. For example, metal music has a obvious negative sentiment because the most common words are dead, blood, and death. 
+One interesting finding is that Jazz and Pop music has almost the same top 10 common words! This is surprising because when speaking of jazz music, we think about blues, and the word blue actually represents sadness.
+
+##Sentiment Analysis
+
+For further analysis, I use the 'bing' lexicon. It classifies words in a binary trend into positive and negative categories. I also plot the word cloud for the most common positive and negative words.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+word_tibble %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("blue", "hotpink"),max.words = 100)
+```
+
+The interesting thing is that except the word love, all the other words tend to have similar frequency of presence in song lyrics, since they are almost of the same font size. If you look back to my previous analysis, you can find out almost all music genres, except metal.'Love' is on the top 10 common words list, even though to our common sense, we tend to categorize pop and hip-hop as different sentiment music genres.
+
+So I do the further research. I plot the frequency plot for both positive and negative words. As I said before, except the word 'love', the other words have similar frequency. I think the reason for this phenomenon is that the most popular topic for lyrics composing is love story. Although love itself is a positive word, when we form sentences with words, we need verbs and adjectives as well. 'Sad love story' and 'sweet love' express total contrast sentiment. So we cannot only decide the sentiment of each music genre by a few common words, instead we should take all words into consideration.
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+pos_neg <- word_tibble %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+
+pos_neg %>%
+  group_by(sentiment) %>%
+  top_n(10) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(y = "Contribution to sentiment",
+       x = NULL) +
+  coord_flip()
+```
+
+For this purpose, I conclude the scoring methods for the sentiment of words, and calcualte the average score for each music genre. This time, I use the AFINN lexicon, which assigns words with a score that runs between -5 and 5, with negative scores indicating negative sentiment and positive scores indicating positive sentiment. 
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+sentiment_score <- lyrics %>%
+  count(genre, word, sort = TRUE) %>% 
+  ungroup() %>% 
+  inner_join(get_sentiments("afinn"), by = "word") %>%
+  group_by(genre) %>%
+  summarize(value = sum(value * n) / sum(n))
+
+sentiment_score %>%
+  mutate(genre = reorder(genre, value)) %>%
+  ggplot(aes(genre, value,fill = value > 0)) +
+  geom_col(show.legend = FALSE) +
+  ylab("Sentiment Scores") +
+  ggtitle("Average Sentiment Scores for each genre")+
+  coord_flip() 
+```
+
+According to the frequency plot, music genres with negative sentiment scores, such as hip-hop, metal and rock are constant with our common sense. But for those with positive scores, the result is surprising. Jazz music receives the highest score! I know that jazz music will receive positive score according to previous analysis, but I do not expect that it has the highest score.
+
+Let's look again at the word cloud of jazz. The most common words are love,baby,heart, dream, kiss. And after viewing the table below, we can further confirm that jazz music actually has a positive sentiment!
+
+So next time when speaking of Jazz, do not correlate it with Blues or sadness!
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+lyrics[which(lyrics$genre=="Jazz"),] %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100,scale=c(5,0.5),
+      random.order=FALSE,
+      rot.per=0.5,
+      use.r.layout=T,
+      random.color=FALSE,
+      colors=brewer.pal(9,"Blues")))%>%
+  title(main="Jazz")
+```
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+lyrics[which(lyrics$genre=="Jazz"),]%>%
+  inner_join(get_sentiments("afinn"), by = "word") %>%
+  count(value,sort=TRUE) 
+```
+
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+genre_word_sentiment <- lyrics %>% 
+  inner_join(get_sentiments("bing")) %>% 
+  count(genre, word, sentiment, sort = TRUE) %>% 
+  ungroup()
+
+genre_word_sentiment %>% 
+  group_by(genre, sentiment) %>% 
+  top_n(3) %>% 
+  ungroup() %>% 
+  mutate(word = reorder(word, n)) %>% 
+  ggplot(aes(word, n, fill = sentiment)) + 
+  geom_col(show.legend = TRUE) +
+  facet_wrap(~genre, scales = "free_y") +
+  ylab("Number of Presence")+
+  ggtitle("Most frequent positive/negative words for each genre")+
+  coord_flip() 
+```
+
+##Summary
+
+By conducting sentiment analysis on song lyrics, we can obtain the following results:
+
++ The most positive music genre is jazz(which is surprising!), followed by R&B, pop, country and eletronic.
+
++ The most negative music genre is hip-hop, followed by metal, rock, indie and folk.
+
++ Love is the most common word in all music genres except metal music.
+
+##Inference
+
+Julia Silge and David Robinson.2019.Text Mining with R.
+
