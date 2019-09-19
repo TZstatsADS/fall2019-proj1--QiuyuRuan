@@ -34,7 +34,7 @@ load('../output/processed_lyrics.RData')
 
 Music is everywhere in daily life, in shopping malls, resturants, at home, nightclub, etc. Apparently, the music type played in Michelin starred restuarants and nightclubs are totally different. For instance, nightclubs tend to play rock or hip-hop music, while restuarants tend to play classic or jazz music. What's more, people with different personalities have different appetites for music genres. For example, optimisms often prefer pop music while pessimists prefer metal or hip-hop music better.
 
-So whether different music genres have their own attitudes for sentiment? In order to explore this problem, I decide to conduct sentiment analysis on song lyrics.
+**So whether different music genres have their own attitudes?For example, is it true that hip-hop music is more negative while pop music is more positive according to our common sense?** In order to explore this problem, I decide to conduct sentiment analysis on song lyrics.
 
 ##Initial Data Exploration
 
